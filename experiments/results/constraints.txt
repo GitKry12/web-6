@@ -1,0 +1,88 @@
+1. NULL title
+psql:experiments/constraints.sql:5: ERROR:  23502: null value in column "title" of relation "courses" violates not-null constraint
+DETAIL:  Failing row contains (x-test, null, Test, 3, f, 0).
+SCHEMA NAME:  public
+TABLE NAME:  courses
+COLUMN NAME:  title
+LOCATION:  ExecConstraints, execMain.c:1988
+2. Zero credits
+psql:experiments/constraints.sql:7: ERROR:  23514: new row for relation "courses" violates check constraint "courses_credits_check"
+DETAIL:  Failing row contains (x-test, Test, Test, 0, f, 0).
+SCHEMA NAME:  public
+TABLE NAME:  courses
+CONSTRAINT NAME:  courses_credits_check
+LOCATION:  ExecConstraints, execMain.c:2039
+3. Negative likes
+psql:experiments/constraints.sql:9: ERROR:  23514: new row for relation "courses" violates check constraint "courses_likes_check"
+DETAIL:  Failing row contains (api-design, API Design: REST vs GraphQL, Comparing REST and GraphQL in one hands-on project., 4, t, -1).
+SCHEMA NAME:  public
+TABLE NAME:  courses
+CONSTRAINT NAME:  courses_likes_check
+LOCATION:  ExecConstraints, execMain.c:2039
+4. One-character name
+psql:experiments/constraints.sql:11: ERROR:  23514: new row for relation "students" violates check constraint "students_name_check"
+DETAIL:  Failing row contains (4, A, a@example.com).
+SCHEMA NAME:  public
+TABLE NAME:  students
+CONSTRAINT NAME:  students_name_check
+LOCATION:  ExecConstraints, execMain.c:2039
+5. Duplicate email
+psql:experiments/constraints.sql:13: ERROR:  23505: duplicate key value violates unique constraint "students_email_key"
+DETAIL:  Key (email)=(aigerim@example.com) already exists.
+SCHEMA NAME:  public
+TABLE NAME:  students
+CONSTRAINT NAME:  students_email_key
+LOCATION:  _bt_check_unique, nbtinsert.c:673
+6. Duplicate course ID
+psql:experiments/constraints.sql:15: ERROR:  23505: duplicate key value violates unique constraint "courses_pkey"
+DETAIL:  Key (id)=(api-design) already exists.
+SCHEMA NAME:  public
+TABLE NAME:  courses
+CONSTRAINT NAME:  courses_pkey
+LOCATION:  _bt_check_unique, nbtinsert.c:673
+7. Duplicate enrollment
+psql:experiments/constraints.sql:17: ERROR:  23505: duplicate key value violates unique constraint "enrollments_course_id_student_id_key"
+DETAIL:  Key (course_id, student_id)=(modern-frontend, 1) already exists.
+SCHEMA NAME:  public
+TABLE NAME:  enrollments
+CONSTRAINT NAME:  enrollments_course_id_student_id_key
+LOCATION:  _bt_check_unique, nbtinsert.c:673
+8. Missing course
+psql:experiments/constraints.sql:19: ERROR:  23503: insert or update on table "enrollments" violates foreign key constraint "enrollments_course_id_fkey"
+DETAIL:  Key (course_id)=(no-such-course) is not present in table "courses".
+SCHEMA NAME:  public
+TABLE NAME:  enrollments
+CONSTRAINT NAME:  enrollments_course_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2610
+9. Missing student
+psql:experiments/constraints.sql:21: ERROR:  23503: insert or update on table "enrollments" violates foreign key constraint "enrollments_student_id_fkey"
+DETAIL:  Key (student_id)=(999) is not present in table "students".
+SCHEMA NAME:  public
+TABLE NAME:  enrollments
+CONSTRAINT NAME:  enrollments_student_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2610
+10. RESTRICT course deletion
+psql:experiments/constraints.sql:23: ERROR:  23503: update or delete on table "courses" violates foreign key constraint "enrollments_course_id_fkey" on table "enrollments"
+DETAIL:  Key (id)=(modern-frontend) is still referenced from table "enrollments".
+SCHEMA NAME:  public
+TABLE NAME:  enrollments
+CONSTRAINT NAME:  enrollments_course_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2624
+11. Cascading delete and rollback
+BEGIN
+ before_delete 
+---------------
+             6
+(1 row)
+
+DELETE 1
+ after_delete 
+--------------
+            3
+(1 row)
+
+ROLLBACK
+ after_rollback 
+----------------
+              6
+(1 row)
