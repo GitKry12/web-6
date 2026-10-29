@@ -1,0 +1,97 @@
+[A]
+SELECT (SELECT count(*) FROM courses), (SELECT count(*) FROM students), (SELECT count(*) FROM enrollments);
+6|3|6
+
+[A]
+SELECT count(*) FROM students WHERE email='madina@example.com';
+0
+
+[B]
+SHOW default_transaction_isolation;
+read committed
+
+[A]
+BEGIN;
+
+
+[A]
+INSERT INTO students(name,email) VALUES ('Madina Ospanova','madina@example.com');
+
+
+[A]
+INSERT INTO enrollments(course_id,student_id) SELECT 'no-such-course',id FROM students WHERE email='madina@example.com';
+ERROR:  23503: insert or update on table "enrollments" violates foreign key constraint "enrollments_course_id_fkey"
+DETAIL:  Key (course_id)=(no-such-course) is not present in table "courses".
+SCHEMA NAME:  public
+TABLE NAME:  enrollments
+CONSTRAINT NAME:  enrollments_course_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2610
+
+[A]
+SELECT count(*) FROM students;
+ERROR:  25P02: current transaction is aborted, commands ignored until end of transaction block
+LOCATION:  exec_simple_query, postgres.c:1144
+
+[A]
+ROLLBACK;
+
+
+[A]
+SELECT count(*) FROM students WHERE email='madina@example.com';
+0
+
+[B]
+SELECT count(*) FROM enrollments e JOIN students s ON s.id=e.student_id WHERE s.email='madina@example.com';
+0
+
+[A]
+SELECT (SELECT count(*) FROM courses), (SELECT count(*) FROM students), (SELECT count(*) FROM enrollments);
+6|3|6
+
+[A]
+BEGIN;
+
+
+[A]
+INSERT INTO students(name,email) VALUES ('Madina Ospanova','madina@example.com');
+
+
+[A]
+INSERT INTO enrollments(course_id,student_id) SELECT 'web-security',id FROM students WHERE email='madina@example.com';
+
+
+[A]
+SELECT count(*) FROM students WHERE email='madina@example.com';
+1
+
+[A]
+SELECT count(*) FROM enrollments e JOIN students s ON s.id=e.student_id WHERE s.email='madina@example.com';
+1
+
+[B]
+SELECT count(*) FROM students WHERE email='madina@example.com';
+0
+
+[B]
+SELECT count(*) FROM enrollments e JOIN students s ON s.id=e.student_id WHERE s.email='madina@example.com';
+0
+
+[A]
+COMMIT;
+
+
+[B]
+SELECT count(*) FROM students WHERE email='madina@example.com';
+1
+
+[B]
+SELECT count(*) FROM enrollments e JOIN students s ON s.id=e.student_id WHERE s.email='madina@example.com';
+1
+
+[B]
+SELECT (SELECT count(*) FROM courses), (SELECT count(*) FROM students), (SELECT count(*) FROM enrollments);
+6|4|7
+
+[B]
+SELECT s.name,c.title FROM enrollments e JOIN students s ON s.id=e.student_id JOIN courses c ON c.id=e.course_id WHERE s.email='madina@example.com';
+Madina Ospanova|Web Security Essentials
