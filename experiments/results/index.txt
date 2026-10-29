@@ -1,0 +1,121 @@
+BEGIN
+psql:schema.sql:4: NOTICE:  table "enrollments" does not exist, skipping
+psql:schema.sql:4: NOTICE:  table "students" does not exist, skipping
+psql:schema.sql:4: NOTICE:  table "courses" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+COMMIT
+psql:experiments/index.sql:12: NOTICE:  index "enrollments_student_id_idx" does not exist, skipping
+DROP INDEX
+BEGIN
+INSERT 0 500
+INSERT 0 20000
+INSERT 0 50000
+COMMIT
+ANALYZE
+ANALYZE
+ANALYZE
+ courses | students | enrollments 
+---------+----------+-------------
+     500 |    20000 |       50000
+(1 row)
+
+EMAIL LOOKUP
+                                     QUERY PLAN                                     
+------------------------------------------------------------------------------------
+ Index Scan using students_email_key on students  (cost=0.29..8.30 rows=1 width=45)
+   Index Cond: (email = 'student777@example.com'::text)
+(2 rows)
+
+COURSE LOOKUP
+                                             QUERY PLAN                                              
+-----------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on enrollments  (cost=5.19..241.01 rows=100 width=34)
+   Recheck Cond: (course_id = 'course-7'::text)
+   ->  Bitmap Index Scan on enrollments_course_id_student_id_key  (cost=0.00..5.17 rows=100 width=0)
+         Index Cond: (course_id = 'course-7'::text)
+(4 rows)
+
+BEFORE INDEX
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Seq Scan on enrollments  (cost=0.00..1042.00 rows=3 width=34)
+   Filter: (student_id = 777)
+(2 rows)
+
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Seq Scan on enrollments  (cost=0.00..1042.00 rows=3 width=34) (actual time=0.070..3.491 rows=3 loops=1)
+   Filter: (student_id = 777)
+   Rows Removed by Filter: 49997
+ Planning Time: 0.037 ms
+ Execution Time: 3.500 ms
+(5 rows)
+
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Seq Scan on enrollments  (cost=0.00..1042.00 rows=3 width=34) (actual time=0.112..6.389 rows=3 loops=1)
+   Filter: (student_id = 777)
+   Rows Removed by Filter: 49997
+ Planning Time: 0.091 ms
+ Execution Time: 6.405 ms
+(5 rows)
+
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Seq Scan on enrollments  (cost=0.00..1042.00 rows=3 width=34) (actual time=0.071..3.475 rows=3 loops=1)
+   Filter: (student_id = 777)
+   Rows Removed by Filter: 49997
+ Planning Time: 0.069 ms
+ Execution Time: 3.488 ms
+(5 rows)
+
+CREATE INDEX
+AFTER INDEX
+                                       QUERY PLAN                                        
+-----------------------------------------------------------------------------------------
+ Bitmap Heap Scan on enrollments  (cost=4.31..15.59 rows=3 width=34)
+   Recheck Cond: (student_id = 777)
+   ->  Bitmap Index Scan on enrollments_student_id_idx  (cost=0.00..4.31 rows=3 width=0)
+         Index Cond: (student_id = 777)
+(4 rows)
+
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on enrollments  (cost=4.31..15.59 rows=3 width=34) (actual time=0.107..0.111 rows=3 loops=1)
+   Recheck Cond: (student_id = 777)
+   Heap Blocks: exact=3
+   ->  Bitmap Index Scan on enrollments_student_id_idx  (cost=0.00..4.31 rows=3 width=0) (actual time=0.095..0.095 rows=3 loops=1)
+         Index Cond: (student_id = 777)
+ Planning Time: 0.060 ms
+ Execution Time: 0.125 ms
+(7 rows)
+
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on enrollments  (cost=4.31..15.59 rows=3 width=34) (actual time=0.015..0.017 rows=3 loops=1)
+   Recheck Cond: (student_id = 777)
+   Heap Blocks: exact=3
+   ->  Bitmap Index Scan on enrollments_student_id_idx  (cost=0.00..4.31 rows=3 width=0) (actual time=0.008..0.008 rows=3 loops=1)
+         Index Cond: (student_id = 777)
+ Planning Time: 0.053 ms
+ Execution Time: 0.029 ms
+(7 rows)
+
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on enrollments  (cost=4.31..15.59 rows=3 width=34) (actual time=0.018..0.021 rows=3 loops=1)
+   Recheck Cond: (student_id = 777)
+   Heap Blocks: exact=3
+   ->  Bitmap Index Scan on enrollments_student_id_idx  (cost=0.00..4.31 rows=3 width=0) (actual time=0.008..0.008 rows=3 loops=1)
+         Index Cond: (student_id = 777)
+ Planning Time: 0.051 ms
+ Execution Time: 0.033 ms
+(7 rows)
+
+ table_size | index_size 
+------------+------------
+ 3336 kB    | 896 kB
+(1 row)
