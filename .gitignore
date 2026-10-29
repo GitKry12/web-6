@@ -1,0 +1,7 @@
+# Local connection settings and database files never belong in this repository.
+.env
+.env.*
+!.env.example
+pgdata/
+*.log
+__pycache__/
