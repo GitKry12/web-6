@@ -1,0 +1,14 @@
+version                                 
+-------------------------------------------------------------------------
+ PostgreSQL 17.4 on x86_64-windows, compiled by msvc-19.42.34436, 64-bit
+(1 row)
+
+ current_database | current_user 
+------------------+--------------
+ course_catalog   | catalog_app
+(1 row)
+
+ default_transaction_isolation 
+-------------------------------
+ read committed
+(1 row)

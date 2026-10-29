@@ -4,6 +4,107 @@
 Данные курсов совпадают с [data.py предыдущей лабораторной](https://github.com/GitKry12/fastapi/blob/main/data.py).
 В этой работе SQL выполняется через `psql`; подключение FastAPI к БД относится к следующей лабораторной.
 
+## How to run
+
+Требуется PostgreSQL **16 или новее** и клиент `psql`. Проверено на Windows, PostgreSQL **17.4**, 30 октября 2026 года. Версия и роль зафиксированы в [environment.txt](experiments/results/environment.txt).
+
+Один раз подключитесь к своему серверу как `postgres`:
+
+```bash
+psql -h localhost -U postgres -d postgres
+```
+
+Создайте роль без прав суперпользователя и базы:
+
+```sql
+CREATE ROLE catalog_app LOGIN PASSWORD 'change-me';
+CREATE DATABASE course_catalog OWNER catalog_app;
+CREATE DATABASE idx_demo OWNER catalog_app;
+CREATE DATABASE norm_demo OWNER catalog_app;
+```
+
+`norm_demo` зарезервирована для необязательного задания по нормализации; основная работа использует первые две базы. Если роль и базы уже созданы, повторять эти команды не нужно. Пароль `change-me` — только учебный пример.
+
+Выйдите из psql командой `\q`. Из папки репозитория выполните по очереди:
+
+```bash
+psql -h localhost -U catalog_app -d course_catalog -v ON_ERROR_STOP=1 -f schema.sql
+psql -h localhost -U catalog_app -d course_catalog -v ON_ERROR_STOP=1 -f seed.sql
+psql -h localhost -U catalog_app -d course_catalog -v ON_ERROR_STOP=1 -f queries.sql
+```
+
+При запросе пароля введите `change-me`. **schema.sql пересоздаёт таблицы и удаляет их данные** — это учебный способ сброса. Для повторного заполнения снова выполните schema.sql, затем seed.sql: отдельный повтор seed.sql на заполненных таблицах нарушит уникальность. Оба файла обёрнуты в транзакции, чтобы при ошибке не оставить частично выполненные изменения.
+
+В PowerShell перед запуском установите кодировку. Если psql не находится, добавьте путь к установленной версии в PATH текущего окна:
+
+```powershell
+$env:PGCLIENTENCODING = 'UTF8'
+$env:Path = 'C:\Program Files\PostgreSQL\17\bin;' + $env:Path
+```
+
+Обычный сервер использует порт 5432. Для проверки этой работы был запущен отдельный учебный экземпляр на **127.0.0.1:55432**, без изменения существующих баз. Для подключения к нему задайте `$env:PGPORT = '55432'` в PowerShell или добавьте `-p 55432` к командам. Он должен быть запущен; файлы базы не входят в Git. На другом сервере используйте его порт.
+
+Проверка начального состава:
+
+```sql
+SELECT (SELECT count(*) FROM courses) AS courses,
+       (SELECT count(*) FROM students) AS students,
+       (SELECT count(*) FROM enrollments) AS enrollments;
+-- 6 | 3 | 6
+```
+
+`queries.sql` содержит девять запросов (1, 1b, 2, 2b, 3, 3b, 4, 5, 6). Изменяющие запросы выполняются внутри `BEGIN ... ROLLBACK`, поэтому строки и лайки сохраняются. Номер пробной записи может меняться из-за последовательности IDENTITY.
+Результаты: [queries.txt](experiments/results/queries.txt), описание таблиц: [schema.txt](experiments/results/schema.txt), финальная проверка: [verification.txt](experiments/results/verification.txt).
+
+```text
+course-catalog-db/
+  schema.sql
+  seed.sql
+  queries.sql
+  README.md
+  experiments/
+    constraints.sql
+    idx_data.sql
+    index.sql
+    verify_transactions.py
+    results/                 # фактические результаты psql
+```
+
+## Schema
+
+```mermaid
+erDiagram
+    COURSES ||--o{ ENROLLMENTS : "course enrollments"
+    STUDENTS ||--o{ ENROLLMENTS : "student enrollments"
+    COURSES {
+        text id PK "course slug"
+        text title
+        text description
+        integer credits
+        boolean is_elective
+        integer likes
+    }
+    STUDENTS {
+        bigint id PK "generated always as identity"
+        text name
+        text email UK
+    }
+    ENROLLMENTS {
+        bigint id PK "generated always as identity"
+        text course_id FK "part of unique pair"
+        bigint student_id FK "part of unique pair"
+        timestamptz enrolled_at
+    }
+```
+
+`courses` хранит сведения о курсах, `students` — о студентах, `enrollments` — факты записи. Каждый курс и каждый студент могут иметь много записей; каждая запись относится ровно к одному курсу и одному студенту. Связь многие-ко-многим реализована через `enrollments`, а `UNIQUE (course_id, student_id)` не допускает повторную запись на тот же курс.
+
+## Design decisions
+
+- `courses.id` — текстовый slug из маршрутов прежнего API: он понятен человеку и сохраняет совместимость с существующими ссылками. Текстовый ключ занимает больше места, а его изменение затрагивает ссылки. `students.id` — автоматический bigint: имя и email могут меняться, идентификатор остаётся стабильным; для отображения сведений о студенте требуется JOIN.
+- `RESTRICT` запрещает удалять курс, пока на него кто-то записан: сначала нужно явно решить судьбу записей. `CASCADE` удаляет записи вместе со студентом, потому что без него они не имеют смысла. Удаление студента не удаляет сами курсы.
+- `timestamptz` хранит момент времени независимо от часового пояса отображения; исходное имя часового пояса он не сохраняет. `timestamp` не задаёт однозначный момент между разными часовыми поясами. `text` подходит для строк без искусственного предела длины; требование к имени выражено явно через CHECK, а не произвольный `varchar(n)`.
+
 ## Constraint violation log
 
 Эксперименты действительно выполнены на PostgreSQL **17.4** с `\set VERBOSITY verbose`.
@@ -102,3 +203,17 @@ python experiments/verify_transactions.py
 ```
 
 Скрипт использует стандартную библиотеку Python и переменные подключения `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD` (либо pgpass). Если `psql` не в PATH, переменная `PSQL` задаёт полный путь к нему. Успешный сценарий действительно фиксирует Мадину; после проверки выполните schema.sql и seed.sql, чтобы вернуть состав 6 / 3 / 6.
+
+## Self-review against the checklist
+
+| Проверка | Результат |
+|---|---|
+| Keys | Да. У всех трёх таблиц есть PK; обе связи enrollments защищены FK. |
+| Types | Да. Slug — text, числовые идентификаторы — bigint, credits/likes — integer, флаг — boolean, момент записи — timestamptz. |
+| Required values | Да. Все колонки NOT NULL, включая PK; у is_elective, likes и enrolled_at заданы DEFAULT. |
+| Constraints | Да. CHECK для credits > 0, likes >= 0, длины имени >= 2; UNIQUE для email и пары курс–студент. CHECK имени соответствует min_length=2 в API. |
+| Deletion | Да. Курс защищён RESTRICT; при удалении студента его записи удаляются CASCADE. Оба поведения проверены. |
+| Normalization | Да. Имена/email студентов и свойства курсов хранятся отдельно; enrollments содержит ссылки и момент записи. Списков значений в одной ячейке нет. |
+| Indexes and names | Да. Есть индексы PK и UNIQUE, отдельный индекс student_id. Для course_id используется первый столбец составного UNIQUE; дублирующий индекс не добавлен. Имена в snake_case. |
+
+Финальная проверка запускает schema.sql → seed.sql → queries.sql на существующих таблицах, затем повторяет цикл. Проверяются результаты девяти запросов, сохранение 6 / 3 / 6 строк, 11 лайков у api-design, наличие индекса и ограничения. Ошибки в constraints.sql намеренные; этот скрипт включает продолжение после ошибок только для их демонстрации.

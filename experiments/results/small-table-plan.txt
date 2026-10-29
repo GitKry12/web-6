@@ -1,0 +1,6 @@
+ANALYZE
+                       QUERY PLAN                        
+---------------------------------------------------------
+ Seq Scan on courses  (cost=0.00..1.07 rows=1 width=100)
+   Filter: (id = 'api-design'::text)
+(2 rows)

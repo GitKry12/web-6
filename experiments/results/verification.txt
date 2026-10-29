@@ -1,0 +1,11 @@
+PostgreSQL 17.4; role catalog_app; database course_catalog.
+PASS rebuild 1, queries run 1: all nine examples match; 6/3/6 rows; likes=11.
+PASS rebuild 1, queries run 2: all nine examples match; 6/3/6 rows; likes=11.
+PASS rebuild 1: enrollments.student_id index exists.
+PASS rebuild 2, queries run 1: all nine examples match; 6/3/6 rows; likes=11.
+PASS rebuild 2, queries run 2: all nine examples match; 6/3/6 rows; likes=11.
+PASS rebuild 2: enrollments.student_id index exists.
+PASS final schema: ten expected constraint errors and cascade rollback preserve 6/3/6 rows.
+PASS small table: primary key lookup uses Seq Scan after ANALYZE.
+PASS two independent psql sessions: see transactions.txt (executed before final rebuild).
+PASS index benchmark: see index.txt (three measurements before and after).
